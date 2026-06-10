@@ -206,22 +206,29 @@ def build_select_expression(
 # ------------------------------------------------------------
 # Validation helpers
 # ------------------------------------------------------------
+def get_table_row_count(
+    client: bigquery.Client,
+    table_id: str,
+) -> int:
+    row_count_sql = f"""
+SELECT COUNT(*) AS row_count
+FROM `{table_id}`;
+""".strip()
+
+    row_count_result = list(client.query(row_count_sql).result())
+
+    if not row_count_result:
+        raise ValueError(f"Unable to read row count for table: {table_id}")
+
+    return int(row_count_result[0]["row_count"])
+
+
 def validate_staging_table_has_rows(
     client: bigquery.Client,
     staging_table_id: str,
 ) -> None:
-    row_count_sql = f"""
-SELECT COUNT(*) AS row_count
-FROM `{staging_table_id}`;
-""".strip()
-
     LOGGER.info("Validating staging table has rows before truncate.")
-    row_count_result = list(client.query(row_count_sql).result())
-
-    if not row_count_result:
-        raise ValueError("Unable to validate staging row count before truncate.")
-
-    row_count = row_count_result[0]["row_count"]
+    row_count = get_table_row_count(client=client, table_id=staging_table_id)
 
     if row_count == 0:
         raise ValueError(
@@ -355,6 +362,8 @@ def load_staging_data_into_target(
     LOGGER.info("Overwriting target table with staged data atomically: %s", target_table_id)
     query_job = client.query(select_sql, job_config=query_job_config)
     query_job.result()
+    target_row_count = get_table_row_count(client=client, table_id=target_table_id)
+    LOGGER.info("Target table row count after overwrite: %s", target_row_count)
     LOGGER.info("Target table load completed successfully.")
 
 
@@ -389,6 +398,8 @@ def load_expired_voucher() -> None:
             gcs_uri=gcs_uri,
             staging_table_id=staging_table_id,
         )
+        staging_row_count = get_table_row_count(client=client, table_id=staging_table_id)
+        LOGGER.info("Staging table row count after parquet load: %s", staging_row_count)
         load_staging_data_into_target(
             client=client,
             target_table_id=target_table_id,

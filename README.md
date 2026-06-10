@@ -76,7 +76,7 @@ Each file inside `python_file/` follows the same flow:
 9. Validate required target columns exist in the source
 10. Validate required target values are not null after casting
 11. Build a `SELECT` using the exact target schema from BigQuery
-12. Atomically overwrite the target table from the staging `SELECT`
+12. Overwrite the target table from the staging `SELECT`, 
 13. Drop the staging table in `finally`
 
 ## Safety controls
