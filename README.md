@@ -88,7 +88,7 @@ Each file inside `python_file/` follows the same flow:
 - Invalid or null values in required target columns fail the job.
 - Nullable target columns can safely become `NULL`. (just incase null column created later)
 - Empty staging loads fail before the target table is overwritten.
-- The target table is overwritten atomically using a destination query job instead of `TRUNCATE TABLE` plus `INSERT`.
+- The target table is overwritten using a destination query job instead of `TRUNCATE TABLE` plus `INSERT`.
 - Temporary staging tables are always cleaned up after the run.
 
 ## Available scripts (total of 16)
