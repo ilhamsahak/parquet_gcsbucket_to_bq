@@ -206,6 +206,29 @@ def build_select_expression(
 # ------------------------------------------------------------
 # Validation helpers
 # ------------------------------------------------------------
+def validate_staging_table_has_rows(
+    client: bigquery.Client,
+    staging_table_id: str,
+) -> None:
+    row_count_sql = f"""
+SELECT COUNT(*) AS row_count
+FROM `{staging_table_id}`;
+""".strip()
+
+    LOGGER.info("Validating staging table has rows before truncate.")
+    row_count_result = list(client.query(row_count_sql).result())
+
+    if not row_count_result:
+        raise ValueError("Unable to validate staging row count before truncate.")
+
+    row_count = row_count_result[0]["row_count"]
+
+    if row_count == 0:
+        raise ValueError(
+            "Staging table is empty. Aborting before truncating target table."
+        )
+
+
 def validate_required_field_values(
     client: bigquery.Client,
     staging_table_id: str,
@@ -260,28 +283,30 @@ FROM `{staging_table_id}`;
 
 
 # ------------------------------------------------------------
-# Insert SQL builder
+# Select SQL builder
 # ------------------------------------------------------------
-def build_insert_sql(
-    target_table_id: str,
+def get_safe_write_disposition() -> str:
+    return getattr(
+        bigquery.WriteDisposition,
+        "WRITE_TRUNCATE_DATA",
+        bigquery.WriteDisposition.WRITE_TRUNCATE,
+    )
+
+
+def build_select_sql(
     staging_table_id: str,
     target_schema: list[bigquery.SchemaField],
     staging_lookup: dict[str, str],
 ) -> str:
-    target_columns: list[str] = []
     select_expressions: list[str] = []
 
     for field in target_schema:
-        target_columns.append(f"`{field.name}`")
         source_column_reference = get_source_column_reference(field.name, staging_lookup)
         select_expressions.append(
             build_select_expression(field, source_column_reference)
         )
 
     return f"""
-TRUNCATE TABLE `{target_table_id}`;
-
-INSERT INTO `{target_table_id}` ({", ".join(target_columns)})
 SELECT
     {", ".join(select_expressions)}
 FROM `{staging_table_id}`;
@@ -303,6 +328,11 @@ def load_staging_data_into_target(
     staging_table = client.get_table(staging_table_id)
     staging_lookup = build_staging_column_lookup(staging_table.schema)
 
+    validate_staging_table_has_rows(
+        client=client,
+        staging_table_id=staging_table_id,
+    )
+
     validate_required_field_values(
         client=client,
         staging_table_id=staging_table_id,
@@ -310,15 +340,20 @@ def load_staging_data_into_target(
         staging_lookup=staging_lookup,
     )
 
-    insert_sql = build_insert_sql(
-        target_table_id=target_table_id,
+    select_sql = build_select_sql(
         staging_table_id=staging_table_id,
         target_schema=target_table.schema,
         staging_lookup=staging_lookup,
     )
 
-    LOGGER.info("Truncating target table and inserting staged data: %s", target_table_id)
-    query_job = client.query(insert_sql)
+    query_job_config = bigquery.QueryJobConfig(
+        destination=target_table_id,
+        write_disposition=get_safe_write_disposition(),
+        create_disposition=bigquery.CreateDisposition.CREATE_NEVER,
+    )
+
+    LOGGER.info("Overwriting target table with staged data atomically: %s", target_table_id)
+    query_job = client.query(select_sql, job_config=query_job_config)
     query_job.result()
     LOGGER.info("Target table load completed successfully.")
 

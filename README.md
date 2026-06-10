@@ -11,14 +11,14 @@ Python scripts for loading Parquet files from GCS into BigQuery tables.
 - Python packages:
   - `google-cloud-bigquery`
   - `python-dotenv`
-- Airflow 3.x if want to run the loaders from DAGs
+- Airflow 3.x to the loaders from DAGs
 
 ## The workflow
 - Reads Parquet data from GCS
-- Loads it into BigQuery
-- Matches source and target columns automatically
+- Loads it into a temporary staging table in BigQuery
+- Matches source and target columns automatically using case-insensitive column mapping
 - Keeps the existing target table schema
-- Truncates and reloads the target table
+- Overwrites the target table only after validation passes
 
 ## Setup
 Copy `.env.example` to `.env`, then update the values for your environment.
@@ -62,6 +62,35 @@ Import the loader function and call it from a DAG.
 from python_file.bucket_to_bq_users import load_users
 ```
 
+## Loader flow
+Each file inside `python_file/` follows the same flow:
+
+1. Read shared and table-specific values from `.env`
+2. Create a BigQuery client
+3. Build the target table id and a temporary staging table id
+4. Load the Parquet file from GCS into the staging table
+5. Read the target schema from the existing BigQuery table
+6. Read the staging schema from the loaded Parquet data
+7. Build a case-insensitive lookup for source columns
+8. Validate that the staging table contains rows
+9. Validate required target columns exist in the source
+10. Validate required target values are not null after casting
+11. Build a `SELECT` using the exact target schema from BigQuery
+12. Atomically overwrite the target table from the staging `SELECT`
+13. Drop the staging table in `finally`
+
+## Safety controls
+- The loaders do not hardcode credentials. Credentials come from `.env`.
+- The final schema follows the existing BigQuery target table schema.
+- Source-to-target column matching is case-insensitive.
+- Extra source columns are ignored.
+- Missing required target columns fail the job.
+- Invalid or null values in required target columns fail the job.
+- Nullable target columns can safely become `NULL`. (just incase null column created later)
+- Empty staging loads fail before the target table is overwritten.
+- The target table is overwritten atomically using a destination query job instead of `TRUNCATE TABLE` plus `INSERT`.
+- Temporary staging tables are always cleaned up after the run.
+
 ## Available scripts (total of 16)
 - `bucket_to_bq_bags.py`
 - `bucket_to_bq_customer_summary.py`
@@ -83,4 +112,4 @@ from python_file.bucket_to_bq_users import load_users
 ## Notes
 - Target BigQuery tables must already exist.
 - The scripts do not create or change the target schema.
-- Missing or invalid required values stop the loader before truncation.
+- Missing or invalid required values stop the loader before the target table is overwritten.
