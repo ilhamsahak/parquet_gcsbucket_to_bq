@@ -2,9 +2,11 @@ import logging
 import os
 import uuid
 from pathlib import Path
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 from google.cloud import bigquery
+from google.cloud import storage
 
 
 # ------------------------------------------------------------
@@ -82,12 +84,82 @@ def create_bigquery_client() -> bigquery.Client:
     return bigquery.Client()
 
 
+def create_storage_client() -> storage.Client:
+    credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+
+    if credentials_path:
+        resolved_credentials_path = Path(credentials_path)
+
+        if not resolved_credentials_path.is_absolute():
+            resolved_credentials_path = PROJECT_ROOT / resolved_credentials_path
+
+        return storage.Client.from_service_account_json(str(resolved_credentials_path))
+
+    return storage.Client()
+
+
 # ------------------------------------------------------------
 # Staging load helpers
 # ------------------------------------------------------------
+def parse_gcs_uri(gcs_uri: str) -> tuple[str, str]:
+    parsed_uri = urlparse(gcs_uri)
+
+    if parsed_uri.scheme != "gs":
+        raise ValueError(f"Invalid GCS URI: {gcs_uri}")
+
+    bucket_name = parsed_uri.netloc
+    object_pattern = parsed_uri.path.lstrip("/")
+
+    if not bucket_name or not object_pattern:
+        raise ValueError(f"Invalid GCS URI: {gcs_uri}")
+
+    return bucket_name, object_pattern
+
+
+def get_gcs_listing_prefix(object_pattern: str) -> str:
+    wildcard_position = object_pattern.find("*")
+
+    if wildcard_position == -1:
+        return object_pattern
+
+    prefix_before_wildcard = object_pattern[:wildcard_position]
+
+    if "/" not in prefix_before_wildcard:
+        return ""
+
+    return prefix_before_wildcard.rsplit("/", 1)[0] + "/"
+
+
+def resolve_payment_mode_gcs_uris(
+    storage_client: storage.Client,
+    gcs_uri: str,
+) -> list[str]:
+    bucket_name, object_pattern = parse_gcs_uri(gcs_uri)
+    listing_prefix = get_gcs_listing_prefix(object_pattern)
+    resolved_gcs_uris: list[str] = []
+
+    for blob in storage_client.list_blobs(bucket_name, prefix=listing_prefix):
+        file_name = Path(blob.name).name
+
+        if not file_name.startswith("Payment_Mode_"):
+            continue
+
+        if file_name.startswith("Payment_Mode_Details_"):
+            continue
+
+        resolved_gcs_uris.append(f"gs://{bucket_name}/{blob.name}")
+
+    if not resolved_gcs_uris:
+        raise ValueError(
+            "No Payment_Mode parquet files matched after excluding Payment_Mode_Details files."
+        )
+
+    return sorted(resolved_gcs_uris)
+
+
 def load_parquet_to_staging_table(
     client: bigquery.Client,
-    gcs_uri: str,
+    gcs_uris: list[str],
     staging_table_id: str,
 ) -> None:
     job_config = bigquery.LoadJobConfig(
@@ -98,7 +170,7 @@ def load_parquet_to_staging_table(
 
     LOGGER.info("Loading parquet into staging table: %s", staging_table_id)
     load_job = client.load_table_from_uri(
-        gcs_uri,
+        gcs_uris,
         staging_table_id,
         job_config=job_config,
     )
@@ -390,12 +462,21 @@ def load_payment_mode() -> None:
     staging_table_id = build_staging_table_id(project_id, dataset_id, target_table)
 
     client = create_bigquery_client()
+    storage_client = create_storage_client()
+    resolved_gcs_uris = resolve_payment_mode_gcs_uris(
+        storage_client=storage_client,
+        gcs_uri=gcs_uri,
+    )
 
     try:
         LOGGER.info("Starting parquet load for target table: %s", target_table_id)
+        LOGGER.info(
+            "Resolved %s Payment_Mode source files after excluding overlap.",
+            len(resolved_gcs_uris),
+        )
         load_parquet_to_staging_table(
             client=client,
-            gcs_uri=gcs_uri,
+            gcs_uris=resolved_gcs_uris,
             staging_table_id=staging_table_id,
         )
         staging_row_count = get_table_row_count(client=client, table_id=staging_table_id)
