@@ -6,6 +6,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from google.cloud import bigquery
 
+from python_file.gcs_latest_resolver import resolve_latest_gcs_uri
+
 
 # ------------------------------------------------------------
 # Environment bootstrap
@@ -82,6 +84,13 @@ def get_table_load_configs() -> list[dict[str, str]]:
     return sorted(table_configs, key=lambda config: config["target_table"])
 
 
+def get_excluded_file_prefixes(prefix: str) -> tuple[str, ...]:
+    if prefix == "PAYMENT_MODE":
+        return ("Payment_Mode_Details_",)
+
+    return ()
+
+
 def build_table_id(project_id: str, dataset_id: str, table_name: str) -> str:
     return f"{project_id}.{dataset_id}.{table_name}"
 
@@ -120,7 +129,14 @@ def load_parquet_to_staging_table(
     client: bigquery.Client,
     gcs_uri: str,
     staging_table_id: str,
+    excluded_file_prefixes: tuple[str, ...] = (),
 ) -> None:
+    resolved_gcs_uri = resolve_latest_gcs_uri(
+        gcs_uri=gcs_uri,
+        project_root=PROJECT_ROOT,
+        excluded_file_prefixes=excluded_file_prefixes,
+    )
+
     job_config = bigquery.LoadJobConfig(
         source_format=bigquery.SourceFormat.PARQUET,
         write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
@@ -128,8 +144,9 @@ def load_parquet_to_staging_table(
     )
 
     LOGGER.info("Loading parquet into staging table: %s", staging_table_id)
+    LOGGER.info("Resolved parquet source URI: %s", resolved_gcs_uri)
     load_job = client.load_table_from_uri(
-        gcs_uri,
+        resolved_gcs_uri,
         staging_table_id,
         job_config=job_config,
     )
@@ -369,6 +386,7 @@ def load_single_table(
     dataset_id: str,
     target_table: str,
     gcs_uri: str,
+    excluded_file_prefixes: tuple[str, ...] = (),
 ) -> None:
     target_table_id = build_table_id(project_id, dataset_id, target_table)
     staging_table_id = build_staging_table_id(project_id, dataset_id, target_table)
@@ -379,6 +397,7 @@ def load_single_table(
             client=client,
             gcs_uri=gcs_uri,
             staging_table_id=staging_table_id,
+            excluded_file_prefixes=excluded_file_prefixes,
         )
         load_staging_data_into_target(
             client=client,
@@ -406,8 +425,10 @@ def load_all_tables() -> None:
     failed_tables: list[str] = []
 
     for table_config in table_configs:
+        prefix = table_config["prefix"]
         target_table = table_config["target_table"]
         gcs_uri = table_config["gcs_uri"]
+        excluded_file_prefixes = get_excluded_file_prefixes(prefix)
 
         try:
             load_single_table(
@@ -416,6 +437,7 @@ def load_all_tables() -> None:
                 dataset_id=dataset_id,
                 target_table=target_table,
                 gcs_uri=gcs_uri,
+                excluded_file_prefixes=excluded_file_prefixes,
             )
         except Exception:
             LOGGER.exception("Parquet load failed for target table: %s", target_table)

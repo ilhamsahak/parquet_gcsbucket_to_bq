@@ -6,6 +6,11 @@ from pathlib import Path
 from dotenv import load_dotenv
 from google.cloud import bigquery
 
+try:
+    from python_file.gcs_latest_resolver import resolve_latest_gcs_uri
+except ModuleNotFoundError:
+    from gcs_latest_resolver import resolve_latest_gcs_uri
+
 
 # ------------------------------------------------------------
 # Environment bootstrap
@@ -96,9 +101,15 @@ def load_parquet_to_staging_table(
         create_disposition=bigquery.CreateDisposition.CREATE_IF_NEEDED,
     )
 
+    resolved_gcs_uri = resolve_latest_gcs_uri(
+        gcs_uri=gcs_uri,
+        project_root=PROJECT_ROOT,
+    )
+
     LOGGER.info("Loading parquet into staging table: %s", staging_table_id)
+    LOGGER.info("Resolved parquet source URI: %s", resolved_gcs_uri)
     load_job = client.load_table_from_uri(
-        gcs_uri,
+        resolved_gcs_uri,
         staging_table_id,
         job_config=job_config,
     )

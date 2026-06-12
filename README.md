@@ -10,6 +10,7 @@ Python scripts for loading Parquet files from GCS into BigQuery tables.
   - BigQuery dataset and target tables
 - Python packages:
   - `google-cloud-bigquery`
+  - `google-cloud-storage`
   - `python-dotenv`
 - Airflow 3.x to the loaders from DAGs
 
@@ -28,7 +29,7 @@ Use `service_account/service-account.example.json` as the reference structure fo
 Install the required packages:
 
 ```powershell
-pip install google-cloud-bigquery python-dotenv
+pip install google-cloud-bigquery google-cloud-storage python-dotenv
 ```
 
 Shared variables:
@@ -68,19 +69,21 @@ Each file inside `python_file/` follows the same flow:
 1. Read shared and table-specific values from `.env`
 2. Create a BigQuery client
 3. Build the target table id and a temporary staging table id
-4. Load the Parquet file from GCS into the staging table
-5. Read the target schema from the existing BigQuery table
-6. Read the staging schema from the loaded Parquet data
-7. Build a case-insensitive lookup for source columns
-8. Validate that the staging table contains rows
-9. Validate required target columns exist in the source
-10. Validate required target values are not null after casting
-11. Build a `SELECT` using the exact target schema from BigQuery
-12. Overwrite the target table from the staging `SELECT`, 
-13. Drop the staging table in `finally`
+4. Resolve wildcard GCS URIs to the latest matching Parquet file
+5. Load the latest Parquet file from GCS into the staging table
+6. Read the target schema from the existing BigQuery table
+7. Read the staging schema from the loaded Parquet data
+8. Build a case-insensitive lookup for source columns
+9. Validate that the staging table contains rows
+10. Validate required target columns exist in the source
+11. Validate required target values are not null after casting
+12. Build a `SELECT` using the exact target schema from BigQuery
+13. Overwrite the target table from the staging `SELECT`, 
+14. Drop the staging table in `finally`
 
 ## Safety controls
 - The loaders do not hardcode credentials. Credentials come from `.env`.
+- Wildcard GCS URIs are resolved to one latest matching file before BigQuery loads data.
 - The final schema follows the existing BigQuery target table schema.
 - Source-to-target column matching is case-insensitive.
 - Extra source columns are ignored.
@@ -90,6 +93,14 @@ Each file inside `python_file/` follows the same flow:
 - Empty staging loads fail before the target table is overwritten.
 - The target table is overwritten using a destination query job instead of `TRUNCATE TABLE` plus `INSERT`.
 - Temporary staging tables are always cleaned up after the run.
+
+## Latest file selection
+For source values like `gs://your-bucket/path/Bags_*.parquet`, the loaders list
+matching GCS objects and load only the latest object.
+
+Files with names like `Bags_YYYYMMDD_HHMMSS.parquet` are sorted by the timestamp
+in the filename. If no filename timestamp exists, the loader falls back to the
+GCS object updated time.
 
 ## Available scripts (total of 16)
 - `bucket_to_bq_bags.py`
