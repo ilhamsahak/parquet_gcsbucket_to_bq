@@ -40,8 +40,8 @@ Shared variables:
 Table-specific variables depend on the script.
 
 Examples:
-- `python_file/bucket_to_bq_users.py` uses `USERS_TABLE_ID` and `USERS_GCS_URI`
-- `python_file/bucket_to_bq_bags.py` uses `BAGS_TABLE_ID` and `BAGS_GCS_URI`
+- `python_file/load_to_bq/bucket_to_bq_users.py` uses `USERS_TABLE_ID` and `USERS_GCS_URI`
+- `python_file/load_to_bq/bucket_to_bq_bags.py` uses `BAGS_TABLE_ID` and `BAGS_GCS_URI`
 
 ## Public publishing
 - Keep the real `.env` file private.
@@ -53,18 +53,18 @@ Examples:
 From the project root:
 
 ```powershell
-python python_file/bucket_to_bq_users.py
+python python_file/load_to_bq/bucket_to_bq_users.py
 ```
 
 ## Airflow
 Import the loader function and call it from a DAG.
 
 ```python
-from python_file.bucket_to_bq_users import load_users
+from python_file.load_to_bq.bucket_to_bq_users import load_users
 ```
 
 ## Loader flow
-Each file inside `python_file/` follows the same flow:
+Each file inside `python_file/load_to_bq/` follows the same flow:
 
 1. Read shared and table-specific values from `.env`
 2. Create a BigQuery client

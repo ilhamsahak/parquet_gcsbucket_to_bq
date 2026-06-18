@@ -17,6 +17,38 @@ Wait for query_job.result()
 Fail the task if BigQuery returns an error
 ```
 
+## Python Callers
+
+Use the shared Python loader in `python_file/r1_to_r2`.
+
+```powershell
+python python_file/r1_to_r2/loader.py --table_name customer_summary
+```
+
+For Airflow, import the shared function:
+
+```python
+from python_file.r1_to_r2.loader import run_r1_to_r2_table
+
+run_r1_to_r2_table("customer_summary")
+```
+
+The shared executor is:
+
+```text
+python_file/r1_to_r2/sql_executor.py
+```
+
+The executor logs:
+
+- SQL file name
+- Success or failure status
+- BigQuery job ID when a query job is created
+- BigQuery error reason, location, and message when available
+
+On failure, the Python function raises the exception again so Airflow can mark
+the task as failed.
+
 ## Table Naming
 
 Source tables:

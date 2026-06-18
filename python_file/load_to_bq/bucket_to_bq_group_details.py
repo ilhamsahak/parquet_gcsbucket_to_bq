@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from google.cloud import bigquery
 
 try:
-    from python_file.gcs_latest_resolver import resolve_latest_gcs_uri
+    from python_file.load_to_bq.gcs_latest_resolver import resolve_latest_gcs_uri
 except ModuleNotFoundError:
     from gcs_latest_resolver import resolve_latest_gcs_uri
 
@@ -15,7 +15,7 @@ except ModuleNotFoundError:
 # ------------------------------------------------------------
 # Environment bootstrap
 # ------------------------------------------------------------
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(PROJECT_ROOT / ".env")
 
 
@@ -45,8 +45,8 @@ def get_required_env(env_name: str) -> str:
 def get_config() -> dict[str, str]:
     project_id = get_required_env("DESTINATION_PROJECT_ID")
     dataset_id = get_required_env("DATASET_ID")
-    target_table = get_required_env("USER_ENTITY_STATUS_TABLE_ID")
-    gcs_uri = get_required_env("USER_ENTITY_STATUS_GCS_URI")
+    target_table = get_required_env("GROUP_DETAILS_TABLE_ID")
+    gcs_uri = get_required_env("GROUP_DETAILS_GCS_URI")
 
     return {
         "project_id": project_id,
@@ -390,7 +390,7 @@ def drop_staging_table(
 # ------------------------------------------------------------
 # Main execution flow
 # ------------------------------------------------------------
-def load_user_entity_status() -> None:
+def load_group_details() -> None:
     config = get_config()
     project_id = config["project_id"]
     dataset_id = config["dataset_id"]
@@ -428,5 +428,5 @@ def load_user_entity_status() -> None:
 
 
 if __name__ == "__main__":
-    load_user_entity_status()
+    load_group_details()
 

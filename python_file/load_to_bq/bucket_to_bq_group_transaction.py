@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from google.cloud import bigquery
 
 try:
-    from python_file.gcs_latest_resolver import resolve_latest_gcs_uri
+    from python_file.load_to_bq.gcs_latest_resolver import resolve_latest_gcs_uri
 except ModuleNotFoundError:
     from gcs_latest_resolver import resolve_latest_gcs_uri
 
@@ -15,7 +15,7 @@ except ModuleNotFoundError:
 # ------------------------------------------------------------
 # Environment bootstrap
 # ------------------------------------------------------------
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(PROJECT_ROOT / ".env")
 
 
@@ -28,12 +28,6 @@ logging.basicConfig(
 )
 
 LOGGER = logging.getLogger(__name__)
-
-
-# ------------------------------------------------------------
-# Source object filters
-# ------------------------------------------------------------
-PAYMENT_MODE_EXCLUDED_FILE_PREFIXES = ("Payment_Mode_Details_",)
 
 
 # ------------------------------------------------------------
@@ -51,8 +45,8 @@ def get_required_env(env_name: str) -> str:
 def get_config() -> dict[str, str]:
     project_id = get_required_env("DESTINATION_PROJECT_ID")
     dataset_id = get_required_env("DATASET_ID")
-    target_table = get_required_env("PAYMENT_MODE_TABLE_ID")
-    gcs_uri = get_required_env("PAYMENT_MODE_GCS_URI")
+    target_table = get_required_env("GROUP_TRANSACTION_TABLE_ID")
+    gcs_uri = get_required_env("GROUP_TRANSACTION_GCS_URI")
 
     return {
         "project_id": project_id,
@@ -101,16 +95,15 @@ def load_parquet_to_staging_table(
     gcs_uri: str,
     staging_table_id: str,
 ) -> None:
-    resolved_gcs_uri = resolve_latest_gcs_uri(
-        gcs_uri=gcs_uri,
-        project_root=PROJECT_ROOT,
-        excluded_file_prefixes=PAYMENT_MODE_EXCLUDED_FILE_PREFIXES,
-    )
-
     job_config = bigquery.LoadJobConfig(
         source_format=bigquery.SourceFormat.PARQUET,
         write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
         create_disposition=bigquery.CreateDisposition.CREATE_IF_NEEDED,
+    )
+
+    resolved_gcs_uri = resolve_latest_gcs_uri(
+        gcs_uri=gcs_uri,
+        project_root=PROJECT_ROOT,
     )
 
     LOGGER.info("Loading parquet into staging table: %s", staging_table_id)
@@ -397,7 +390,7 @@ def drop_staging_table(
 # ------------------------------------------------------------
 # Main execution flow
 # ------------------------------------------------------------
-def load_payment_mode() -> None:
+def load_group_transaction() -> None:
     config = get_config()
     project_id = config["project_id"]
     dataset_id = config["dataset_id"]
@@ -435,5 +428,5 @@ def load_payment_mode() -> None:
 
 
 if __name__ == "__main__":
-    load_payment_mode()
+    load_group_transaction()
 
