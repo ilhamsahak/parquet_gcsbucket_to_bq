@@ -6,7 +6,7 @@ DELETE FROM `prod-raw-landing.ds_crm_r2.Member_Transaction` AS a
 WHERE EXISTS (
     SELECT 1
     FROM `prod-raw-landing.ds_crm_r1.Member_Transaction` AS b
-    WHERE a.`BILL_DATE` = b.`BILL_DATE`
+    WHERE DATE(a.`BILL_DATE`) = DATE(b.`BILL_DATE`)
 );
 
 -- ------------------------------------------------------------

@@ -6,7 +6,7 @@ DELETE FROM `prod-raw-landing.ds_crm_r2.Redeemed_Voucher` AS a
 WHERE EXISTS (
     SELECT 1
     FROM `prod-raw-landing.ds_crm_r1.Redeemed_Voucher` AS b
-    WHERE a.`VOUCHER` = b.`VOUCHER`
+    WHERE DATE(a.`REDEEMED_DATE`) = DATE(b.`REDEEMED_DATE`)
 );
 
 -- ------------------------------------------------------------

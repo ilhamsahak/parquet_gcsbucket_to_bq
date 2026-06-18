@@ -6,7 +6,7 @@ DELETE FROM `prod-raw-landing.ds_crm_r2.Issued_Voucher` AS a
 WHERE EXISTS (
     SELECT 1
     FROM `prod-raw-landing.ds_crm_r1.Issued_Voucher` AS b
-    WHERE a.`ISSUAL_DATE_TIME` = b.`ISSUAL_DATE_TIME`
+    WHERE DATE(a.`ISSUAL_DATE_TIME`) = DATE(b.`ISSUAL_DATE_TIME`)
 );
 
 -- ------------------------------------------------------------
