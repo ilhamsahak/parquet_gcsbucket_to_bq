@@ -81,8 +81,8 @@ flowchart TD
     phase2 --> summary
 
     subgraph summary[FINAL SUMMARY]
-        s1[Bucket to R1 summary<br/>bags | SUCCESS<br/>customer_summary | FAILED | error message<br/>expired_voucher | SUCCESS]
-        s2[R1 to R2 summary<br/>bags | SUCCESS<br/>customer_summary | SKIPPED | bucket_to_r1 failed<br/>expired_voucher | SUCCESS]
+        s1[Bucket to R1 summary<br/>bags: SUCCESS<br/>customer_summary: FAILED - error message<br/>expired_voucher: SUCCESS]
+        s2[R1 to R2 summary<br/>bags: SUCCESS<br/>customer_summary: SKIPPED - bucket_to_r1 failed<br/>expired_voucher: SUCCESS]
         s3[Completed. Success=4, Failed=1, Skipped=1]
 
         s1 --> s3
