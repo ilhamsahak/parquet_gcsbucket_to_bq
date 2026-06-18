@@ -25,7 +25,8 @@ INSERT INTO `prod-raw-landing.ds_crm_r2.Redeemed_Voucher` (
     `BILL_ID`,
     `USED_BILL_NUMBER`,
     `REDEMPTION_BILL_AMOUNT`,
-    `COUNTRY_ID`
+    `COUNTRY_ID`,
+    `REDEEMED_DATE`
 )
 SELECT
     `VOUCHER`,
@@ -39,5 +40,6 @@ SELECT
     `BILL_ID`,
     `USED_BILL_NUMBER`,
     `REDEMPTION_BILL_AMOUNT`,
-    `COUNTRY_ID`
+    `COUNTRY_ID`,
+    `REDEEMED_DATE`
 FROM `prod-raw-landing.ds_crm_r1.Redeemed_Voucher`;
