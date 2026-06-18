@@ -2,14 +2,17 @@ import logging
 import os
 import uuid
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
 from google.cloud import bigquery
 
 try:
-    from python_file.load_to_bq.gcs_latest_resolver import resolve_latest_gcs_uri
+    from python_file.bucket_to_r1.gcs_latest_resolver import resolve_latest_gcs_uri
+    from python_file.bucket_to_r1.table_config import TableLoadConfig
 except ModuleNotFoundError:
     from gcs_latest_resolver import resolve_latest_gcs_uri
+    from table_config import TableLoadConfig
 
 
 # ------------------------------------------------------------
@@ -31,7 +34,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 # ------------------------------------------------------------
-# Configuration helpers
+# Environment helpers
 # ------------------------------------------------------------
 def get_required_env(env_name: str) -> str:
     env_value = os.getenv(env_name)
@@ -40,20 +43,6 @@ def get_required_env(env_name: str) -> str:
         raise ValueError(f"Missing required environment variable: {env_name}")
 
     return env_value
-
-
-def get_config() -> dict[str, str]:
-    project_id = get_required_env("DESTINATION_PROJECT_ID")
-    dataset_id = get_required_env("DATASET_ID")
-    target_table = get_required_env("GROUP_DETAILS_TABLE_ID")
-    gcs_uri = get_required_env("GROUP_DETAILS_GCS_URI")
-
-    return {
-        "project_id": project_id,
-        "dataset_id": dataset_id,
-        "target_table": target_table,
-        "gcs_uri": gcs_uri,
-    }
 
 
 def build_table_id(project_id: str, dataset_id: str, table_name: str) -> str:
@@ -94,16 +83,18 @@ def load_parquet_to_staging_table(
     client: bigquery.Client,
     gcs_uri: str,
     staging_table_id: str,
+    excluded_file_prefixes: tuple[str, ...] = (),
 ) -> None:
+    resolved_gcs_uri = resolve_latest_gcs_uri(
+        gcs_uri=gcs_uri,
+        project_root=PROJECT_ROOT,
+        excluded_file_prefixes=excluded_file_prefixes,
+    )
+
     job_config = bigquery.LoadJobConfig(
         source_format=bigquery.SourceFormat.PARQUET,
         write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
         create_disposition=bigquery.CreateDisposition.CREATE_IF_NEEDED,
-    )
-
-    resolved_gcs_uri = resolve_latest_gcs_uri(
-        gcs_uri=gcs_uri,
-        project_root=PROJECT_ROOT,
     )
 
     LOGGER.info("Loading parquet into staging table: %s", staging_table_id)
@@ -387,19 +378,14 @@ def drop_staging_table(
     LOGGER.info("Staging table dropped.")
 
 
-# ------------------------------------------------------------
-# Main execution flow
-# ------------------------------------------------------------
-def load_group_details() -> None:
-    config = get_config()
-    project_id = config["project_id"]
-    dataset_id = config["dataset_id"]
-    target_table = config["target_table"]
-    gcs_uri = config["gcs_uri"]
+def load_bucket_to_r1_table(table_config: TableLoadConfig) -> dict[str, Any]:
+    project_id = get_required_env("DESTINATION_PROJECT_ID")
+    dataset_id = get_required_env("DATASET_ID")
+    target_table = get_required_env(table_config.table_id_env)
+    gcs_uri = get_required_env(table_config.gcs_uri_env)
 
     target_table_id = build_table_id(project_id, dataset_id, target_table)
     staging_table_id = build_staging_table_id(project_id, dataset_id, target_table)
-
     client = create_bigquery_client()
 
     try:
@@ -408,6 +394,7 @@ def load_group_details() -> None:
             client=client,
             gcs_uri=gcs_uri,
             staging_table_id=staging_table_id,
+            excluded_file_prefixes=table_config.excluded_file_prefixes,
         )
         staging_row_count = get_table_row_count(client=client, table_id=staging_table_id)
         LOGGER.info("Staging table row count after parquet load: %s", staging_row_count)
@@ -417,6 +404,13 @@ def load_group_details() -> None:
             staging_table_id=staging_table_id,
         )
         LOGGER.info("Parquet load finished successfully for target table: %s", target_table_id)
+        return {
+            "table_name": table_config.table_name,
+            "target_table_id": target_table_id,
+            "status": "SUCCESS",
+            "staging_row_count": staging_row_count,
+            "message": "Parquet load completed successfully.",
+        }
     except Exception:
         LOGGER.exception("Parquet load failed for target table: %s", target_table_id)
         raise
@@ -425,8 +419,3 @@ def load_group_details() -> None:
             client=client,
             staging_table_id=staging_table_id,
         )
-
-
-if __name__ == "__main__":
-    load_group_details()
-

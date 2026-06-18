@@ -1,6 +1,7 @@
 # Bucket to BigQuery
 
-Python scripts for loading Parquet files from GCS into BigQuery tables.
+Python loaders for moving Parquet files from GCS into BigQuery R1 tables, then
+running SQL from R1 into R2 tables.
 
 ## Requirements
 - Python 3.10 or above
@@ -37,11 +38,11 @@ Shared variables:
 - `DESTINATION_PROJECT_ID`
 - `DATASET_ID`
 
-Table-specific variables depend on the script.
+Table-specific variables depend on the table name.
 
 Examples:
-- `python_file/load_to_bq/bucket_to_bq_users.py` uses `USERS_TABLE_ID` and `USERS_GCS_URI`
-- `python_file/load_to_bq/bucket_to_bq_bags.py` uses `BAGS_TABLE_ID` and `BAGS_GCS_URI`
+- `users` uses `USERS_TABLE_ID` and `USERS_GCS_URI`
+- `bags` uses `BAGS_TABLE_ID` and `BAGS_GCS_URI`
 
 ## Public publishing
 - Keep the real `.env` file private.
@@ -49,22 +50,24 @@ Examples:
 - Commit only `.env.example` and `service_account/service-account.example.json`.
 - Review the values in `README.md` and SQL files before making the repository public.
 
-## Run a loader
+## Run a bucket to R1 loader
 From the project root:
 
 ```powershell
-python python_file/load_to_bq/bucket_to_bq_users.py
+python python_file/bucket_to_r1/loader.py --table_name users
 ```
 
 ## Airflow
 Import the loader function and call it from a DAG.
 
 ```python
-from python_file.load_to_bq.bucket_to_bq_users import load_users
+from python_file.bucket_to_r1.loader import run_bucket_to_r1_table
+
+run_bucket_to_r1_table("users")
 ```
 
 ## Loader flow
-Each file inside `python_file/load_to_bq/` follows the same flow:
+The shared loader inside `python_file/bucket_to_r1/` follows this flow:
 
 1. Read shared and table-specific values from `.env`
 2. Create a BigQuery client
@@ -102,23 +105,23 @@ Files with names like `Bags_YYYYMMDD_HHMMSS.parquet` are sorted by the timestamp
 in the filename. If no filename timestamp exists, the loader falls back to the
 GCS object updated time.
 
-## Available scripts (total of 16)
-- `bucket_to_bq_bags.py`
-- `bucket_to_bq_customer_summary.py`
-- `bucket_to_bq_expired_voucher.py`
-- `bucket_to_bq_group_details.py`
-- `bucket_to_bq_group_transaction.py`
-- `bucket_to_bq_group_users_details.py`
-- `bucket_to_bq_issued_voucher.py`
-- `bucket_to_bq_member_transaction.py`
-- `bucket_to_bq_payment_mode.py`
-- `bucket_to_bq_payment_mode_details.py`
-- `bucket_to_bq_redeemed_voucher.py`
-- `bucket_to_bq_user_entity_status.py`
-- `bucket_to_bq_users.py`
-- `bucket_to_bq_voucher_event_type.py`
-- `bucket_to_bq_voucher_series.py`
-- `bucket_to_bq_zone_tills.py`
+## Available bucket to R1 table names
+- `bags`
+- `customer_summary`
+- `expired_voucher`
+- `group_details`
+- `group_transaction`
+- `group_users_details`
+- `issued_voucher`
+- `member_transaction`
+- `payment_mode`
+- `payment_mode_details`
+- `redeemed_voucher`
+- `user_entity_status`
+- `users`
+- `voucher_event_type`
+- `voucher_series`
+- `zone_tills`
 
 ## Notes
 - Target BigQuery tables must already exist.
