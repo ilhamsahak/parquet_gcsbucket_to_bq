@@ -13,5 +13,4 @@ python-dotenv
 # Airflow runtime
 # ------------------------------------------------------------
 # This project is intended to run inside Airflow 3.x.
-# Keep Airflow itself managed by your Airflow environment or constraints file.
-# apache-airflow>=3,<4
+
