@@ -50,11 +50,37 @@ Examples:
 - Commit only `.env.example` and `service_account/service-account.example.json`.
 - Review the values in `README.md` and SQL files before making the repository public.
 
-## Run a bucket to R1 loader
-From the project root:
+## Run all tables
+From the project root, run the full bucket to R1 and R1 to R2 pipeline for every configured table:
 
-```powershell
-python python_file/bucket_to_r1/loader.py --table_name users
+```bash
+# ------------------------------------------------------------
+# Move into the project directory
+# ------------------------------------------------------------
+cd /opt/itsd/crm-bucket_r2/bucket_bq
+
+# ------------------------------------------------------------
+# Run all bucket to R1 and R1 to R2 tables
+# ------------------------------------------------------------
+./venv/bin/python run_all_table/run_bucket_r1_r2_all.py >> /opt/itsd/logs/crm-bucket_r2.log 2>&1
+```
+
+## Run a specific table
+From the project root, run the bucket to R1 loader first, then run the R1 to R2 SQL loader for the same table.
+
+Example for `customer_summary`:
+
+```bash
+# ------------------------------------------------------------
+# Move into the project directory
+# ------------------------------------------------------------
+cd /opt/itsd/crm-bucket_r2/bucket_bq
+
+# ------------------------------------------------------------
+# Run bucket to R1, then R1 to R2 for one table
+# ------------------------------------------------------------
+./venv/bin/python python_file/bucket_to_r1/loader.py --table_name customer_summary >> /opt/itsd/logs/crm-bucket_r2.log 2>&1 && \
+./venv/bin/python python_file/r1_to_r2/loader.py --table_name customer_summary >> /opt/itsd/logs/crm-bucket_r2.log 2>&1
 ```
 
 ## Airflow
