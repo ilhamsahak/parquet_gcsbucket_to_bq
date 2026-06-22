@@ -1,6 +1,7 @@
-# Local Test Runner
+# Run All Table Runner
 
-Local orchestration script for testing the full daily flow:
+Orchestration script for running the full daily flow across all configured
+tables:
 
 ```text
 bucket_to_r1
@@ -11,7 +12,7 @@ r1_to_r2
 ## Script
 
 ```text
-local_test/run_bucket_to_r1_then_r1_to_r2.py
+run_all_table/run_bucket_to_r1_then_r1_to_r2.py
 ```
 
 ## Run
@@ -19,7 +20,7 @@ local_test/run_bucket_to_r1_then_r1_to_r2.py
 From the project root:
 
 ```powershell
-python local_test/run_bucket_to_r1_then_r1_to_r2.py
+python run_all_table/run_bucket_to_r1_then_r1_to_r2.py
 ```
 
 ## Flow
@@ -97,10 +98,24 @@ The script prints:
 
 It also logs detailed exception messages for failed tables.
 
+After both phases finish, the script sends a Lark interactive card when
+`LARK_WEBHOOK_URL` is configured in `.env`.
+
+The Lark card includes:
+
+- Current date and time
+- A native Lark table with `Table name`, full `GCS URI`, `bucket > r1`,
+  `r1 > r2`, and `Error reason`
+- A native Lark status summary table
+
+For real runs, the `GCS URI` value is the resolved parquet file attempted for
+the bucket to R1 load. If a table fails after source resolution, the failed row
+still includes that resolved file path for later diagnosis.
+
 ## Notes
 
 - This script runs real loads and real SQL.
 - Credentials and table configuration come from `.env`.
-- Use this only when you want to test the full pipeline locally.
+- Use this when you want to run the full pipeline for all configured tables.
 - For Airflow, use the individual loader functions instead of this local test
   script.

@@ -34,6 +34,15 @@ LOGGER = logging.getLogger(__name__)
 
 
 # ------------------------------------------------------------
+# Custom load errors
+# ------------------------------------------------------------
+class BucketToR1LoadError(RuntimeError):
+    def __init__(self, message: str, source_gcs_uri: str = "") -> None:
+        super().__init__(message)
+        self.source_gcs_uri = source_gcs_uri
+
+
+# ------------------------------------------------------------
 # Environment helpers
 # ------------------------------------------------------------
 def get_required_env(env_name: str) -> str:
@@ -81,16 +90,9 @@ def create_bigquery_client() -> bigquery.Client:
 # ------------------------------------------------------------
 def load_parquet_to_staging_table(
     client: bigquery.Client,
-    gcs_uri: str,
+    resolved_gcs_uri: str,
     staging_table_id: str,
-    excluded_file_prefixes: tuple[str, ...] = (),
 ) -> None:
-    resolved_gcs_uri = resolve_latest_gcs_uri(
-        gcs_uri=gcs_uri,
-        project_root=PROJECT_ROOT,
-        excluded_file_prefixes=excluded_file_prefixes,
-    )
-
     job_config = bigquery.LoadJobConfig(
         source_format=bigquery.SourceFormat.PARQUET,
         write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
@@ -387,14 +389,19 @@ def load_bucket_to_r1_table(table_config: TableLoadConfig) -> dict[str, Any]:
     target_table_id = build_table_id(project_id, dataset_id, target_table)
     staging_table_id = build_staging_table_id(project_id, dataset_id, target_table)
     client = create_bigquery_client()
+    source_gcs_uri = ""
 
     try:
         LOGGER.info("Starting parquet load for target table: %s", target_table_id)
+        source_gcs_uri = resolve_latest_gcs_uri(
+            gcs_uri=gcs_uri,
+            project_root=PROJECT_ROOT,
+            excluded_file_prefixes=table_config.excluded_file_prefixes,
+        )
         load_parquet_to_staging_table(
             client=client,
-            gcs_uri=gcs_uri,
+            resolved_gcs_uri=source_gcs_uri,
             staging_table_id=staging_table_id,
-            excluded_file_prefixes=table_config.excluded_file_prefixes,
         )
         staging_row_count = get_table_row_count(client=client, table_id=staging_table_id)
         LOGGER.info("Staging table row count after parquet load: %s", staging_row_count)
@@ -407,13 +414,18 @@ def load_bucket_to_r1_table(table_config: TableLoadConfig) -> dict[str, Any]:
         return {
             "table_name": table_config.table_name,
             "target_table_id": target_table_id,
+            "source_gcs_uri": source_gcs_uri,
             "status": "SUCCESS",
             "staging_row_count": staging_row_count,
             "message": "Parquet load completed successfully.",
         }
-    except Exception:
+    except Exception as error:
         LOGGER.exception("Parquet load failed for target table: %s", target_table_id)
-        raise
+        error_message = str(error).strip() or error.__class__.__name__
+        raise BucketToR1LoadError(
+            message=error_message,
+            source_gcs_uri=source_gcs_uri,
+        ) from error
     finally:
         drop_staging_table(
             client=client,

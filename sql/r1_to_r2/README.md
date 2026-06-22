@@ -3,6 +3,16 @@
 SQL scripts for loading data from `prod-raw-landing.ds_crm_r1` into
 `prod-raw-landing.ds_crm_r2`.
 
+## Why SQL Is Separated
+
+Each table keeps its R1 to R2 logic in a separate SQL file on purpose.
+
+This allows future table-specific logic changes to be handled separately without
+changing the Python runner.
+
+Python should handle orchestration and execution. SQL files should hold the
+table-specific load logic.
+
 ## Flow
 
 Each SQL file handles one table.
