@@ -1,0 +1,17 @@
+# ------------------------------------------------------------
+# BigQuery and Google Cloud Storage clients
+# ------------------------------------------------------------
+google-cloud-bigquery
+google-cloud-storage
+
+# ------------------------------------------------------------
+# Environment variable loading from .env
+# ------------------------------------------------------------
+python-dotenv
+
+# ------------------------------------------------------------
+# Airflow runtime
+# ------------------------------------------------------------
+# This project is intended to run inside Airflow 3.x.
+# Keep Airflow itself managed by your Airflow environment or constraints file.
+# apache-airflow>=3,<4
