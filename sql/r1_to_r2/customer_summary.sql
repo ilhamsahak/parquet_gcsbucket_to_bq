@@ -20,7 +20,7 @@ INSERT INTO `prod-raw-landing.ds_crm_r2.Customer_Summary` (
     `TOTAL_BAGS`,
     `REDEEMED_BAGS`,
     `EXPIRED_BAGS`,
-    `CURRENT_BAGS`
+    `CURRENT_BAGS`,
     `REGISTRATION_CHANNEL`
 )
 SELECT
@@ -35,6 +35,6 @@ SELECT
     `TOTAL_BAGS`,
     `REDEEMED_BAGS`,
     `EXPIRED_BAGS`,
-    `CURRENT_BAGS`
+    `CURRENT_BAGS`,
     `REGISTRATION_CHANNEL`
 FROM `prod-raw-landing.ds_crm_r1.Customer_Summary`;
