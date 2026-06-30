@@ -21,6 +21,7 @@ INSERT INTO `prod-raw-landing.ds_crm_r2.Customer_Summary` (
     `REDEEMED_BAGS`,
     `EXPIRED_BAGS`,
     `CURRENT_BAGS`
+    `REGISTRATION_CHANNEL`
 )
 SELECT
     `USER_ID`,
@@ -35,4 +36,5 @@ SELECT
     `REDEEMED_BAGS`,
     `EXPIRED_BAGS`,
     `CURRENT_BAGS`
+    `REGISTRATION_CHANNEL`
 FROM `prod-raw-landing.ds_crm_r1.Customer_Summary`;
