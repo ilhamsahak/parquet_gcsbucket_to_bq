@@ -19,6 +19,9 @@ Run one table by passing `--table_name`.
 python python_file/r1_to_r2/loader.py --table_name customer_summary
 ```
 
+When `LARK_WEBHOOK_URL` is configured in `.env`, this direct command sends one
+Lark notification for only the selected table.
+
 Other examples:
 
 ```powershell
@@ -45,7 +48,8 @@ run_r1_to_r2_table("customer_summary")
 ```
 
 For Airflow 3.x, call the function from a task and pass the table name you want
-to load.
+to load. Calling the function directly does not send a Lark notification; the
+notification is only sent by the command-line entrypoint.
 
 ## Execution Flow
 
@@ -77,6 +81,9 @@ The Python function also returns a dictionary:
 }
 ```
 
+The command-line entrypoint also sends a single-table Lark notification after a
+successful SQL run when `LARK_WEBHOOK_URL` is configured.
+
 ## Error Logging
 
 On failure, the loader logs:
@@ -89,6 +96,9 @@ On failure, the loader logs:
 
 After logging the error, the exception is raised again so Airflow can mark the
 task as failed.
+
+The command-line entrypoint sends a failed single-table Lark notification before
+raising the exception again.
 
 ## Valid Table Names
 

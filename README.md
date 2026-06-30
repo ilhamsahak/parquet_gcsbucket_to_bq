@@ -66,7 +66,8 @@ cd /opt/itsd/crm-bucket_r2/bucket_bq
 ```
 
 ## Run a specific table
-From the project root, run the bucket to R1 loader first, then run the R1 to R2 SQL loader for the same table.
+From the project root, run the bucket to R1 loader first, then run the R1 to R2
+SQL loader for the same table.
 
 Example for `customer_summary`:
 
@@ -82,6 +83,9 @@ cd /opt/itsd/crm-bucket_r2/bucket_bq
 ./venv/bin/python python_file/bucket_to_r1/loader.py --table_name customer_summary >> /opt/itsd/logs/crm-bucket_r2.log 2>&1 && \
 ./venv/bin/python python_file/r1_to_r2/loader.py --table_name customer_summary >> /opt/itsd/logs/crm-bucket_r2.log 2>&1
 ```
+
+Each direct loader command sends one Lark notification for only the selected
+table when `LARK_WEBHOOK_URL` is configured in `.env`.
 
 ## Airflow
 Import the loader function and call it from a DAG.

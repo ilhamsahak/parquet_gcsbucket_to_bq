@@ -12,15 +12,15 @@ r1_to_r2
 ## Script
 
 ```text
-run_all_table/run_bucket_to_r1_then_r1_to_r2.py
+run_all_table/run_bucket_r1_r2_all.py
 ```
 
-## Run
+## Run All Tables
 
 From the project root:
 
 ```powershell
-python run_all_table/run_bucket_to_r1_then_r1_to_r2.py
+python run_all_table/run_bucket_r1_r2_all.py
 ```
 
 ## Flow
@@ -101,6 +101,8 @@ It also logs detailed exception messages for failed tables.
 After both phases finish, the script sends a Lark interactive card when
 `LARK_WEBHOOK_URL` is configured in `.env`.
 
+The Lark card contains the final summary for all configured tables.
+
 The Lark card includes:
 
 - Current date and time
@@ -116,6 +118,7 @@ still includes that resolved file path for later diagnosis.
 
 - This script runs real loads and real SQL.
 - Credentials and table configuration come from `.env`.
-- Use this when you want to run the full pipeline for all configured tables.
-- For Airflow, use the individual loader functions instead of this local test
-  script.
+- Use this when you want one Lark notification after the pipeline run finishes.
+- For Airflow 3.x all-table runs, call `run_all_table()`.
+- Imported loader functions do not send Lark notifications, which prevents
+  duplicate messages when this orchestrator is used.
